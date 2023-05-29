@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        *{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+        }
+        body{
+            background-color: blue;
+            padding: 10px;
+        }
+        .container-login{
+            display: none;
+        }
+        .container-login, .login {
+            max-width: 750px;
+            margin: 0 auto;
+            text-align: center;
+            background-color: rgb(202, 169, 233);
+            border-radius: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        input{
+            width: 100%;
+            height: 40px;
+            display: block;
+            max-width: 500px;
+            margin: 10px auto;
+            padding-left: 10px;
+        }
+        .container-login textarea{
+            width: 100%;
+            height: 100px;
+            display: block;
+            max-width: 500px;
+            margin: 10px auto;
+            padding: 10px;
+        }
+        input[type=submit]{
+            background-color: rgb(218, 66, 66);
+            color: white;
+            font-size: 15px;
+            border: 0;
+            cursor: pointer;
+        }
+        .tarefas-usuario ul{
+            list-style-type: none;
+        }
+        .tarefas-usuario li{
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .tarefas-usuario li a{
+            color: red;
+            text-decoration: none;
+        }
+    </style>
+    <title>TODO APP</title>
+</head>
+<body>
+    
+    <div class="login">
+        <h2>Faça o login no App</h2>
+        <form class="login-form">
+            <input type="email", name="email" />
+            <input type="password", name="password" />
+            <input type="submit" name="acao" value="Logar!">
+        </form>
+    </div><!--login-->
+
+    <div class="container-login">
+        <h2>Olá, você está logado! <a href="javascript:void(0)" class="logout">Logout</a></h2>
+        <form class="form-cadastro-tarefa">
+            <textarea placeholder="Nome da sua tarefa..." name="tarefa"></textarea>
+            <input type="datetime-local" name="datetime">
+            <input type="submit" name="acao" value="Cadastrar tarefa" />
+        </form>
+        <div class="tarefas-usuario">
+            <h2>Listagem de tarefas atuais:</h2>
+            <ul id="tarefas"></ul>
+        </div><!--tarefas-usuario-->
+    </div><!--container-login-->
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js'
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js'
+        const firebaseConfig = {
+          apiKey: "AIzaSyArz1gIi3cJ9wB5Ijo93tEVDA_Odt-xCR8",
+          authDomain: "todolist-ed9a4.firebaseapp.com",
+          projectId: "todolist-ed9a4",
+          storageBucket: "todolist-ed9a4.appspot.com",
+          messagingSenderId: "966670801605",
+          appId: "1:966670801605:web:6455a4a3dd61c61607eeac"
+        };
+      
+        const app = initializeApp(firebaseConfig);
+
+        // Começamos aqui
+
+        var usuario = null;
+
+        
+        var formLogin = document.querySelector("form.login-form");
+        var btnLogout = document.querySelector(".logout");
+        
+        formLogin.addEventListener("submit", 
+        (e)=>{e.preventDefault();
+            let email = document.querySelector("[name=email]").value;
+            let password = document.querySelector("[name=password]").value;
+            
+            const auth = getAuth();
+            signInWithEmailAndPassword(auth, email, password)
+            .then((userCredential) => {
+                // Signed in 
+                usuario = userCredential.user;
+                
+                document.querySelector(".login").style.display = "none"
+                document.querySelector(".container-login").style.display = "block"
+                // ...
+            })
+            .catch((error) => {
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                
+                alert(errorMessage)
+            });
+        })
+
+        const check = getAuth();
+        onAuthStateChanged(check, (val) => {
+        if(val){
+            usuario = val
+            document.querySelector(".login").style.display = "none"
+            document.querySelector(".container-login").style.display = "block"
+
+            const db = getFirestore(app)
+
+            const q = query(collection(db, "tarefas"), orderBy("dateTime","asc"), where("userId", "==", usuario.uid));
+            const minhas_tarefas = onSnapshot(q, (querySnapshot) => {
+            
+            let list = document.querySelector("#tarefas")
+            list.innerHTML = ""
+            const tarefas = [];
+            querySnapshot.forEach((doc) => {
+                list.innerHTML += `<li>${doc.data().tarefa} <a tarefa-id="${doc.id}" class="excluir-btn" href="javascript:void(0)">(X)</a></li>`
+            });
+                    
+            var excluirTarefas = document.querySelectorAll(".excluir-btn")
+
+            excluirTarefas.forEach(element => {
+                element.addEventListener("click", function(e){
+                e.preventDefault()
+
+                let docId = element.getAttribute("tarefa-id")
+                deleteDoc(doc(db, "tarefas", docId))
+                })
+            })
+            })
+        }
+        })
+
+
+
+        btnLogout.addEventListener("click", (e)=>{
+            e.preventDefault()
+
+            const out = getAuth();
+            signOut(out).then(() => {
+                usuario = null 
+                alert("Deslogado")
+                
+                document.querySelector(".login").style.display = "block"
+                document.querySelector(".container-login").style.display = "none"
+
+                formLogin.reset()
+            }).catch((error) => {
+            // An error happened.
+            });
+        })
+        
+        var formCadastro = document.querySelector(".form-cadastro-tarefa")
+
+        
+        formCadastro.addEventListener("submit", async (e) => {
+            e.preventDefault()
+            
+            let tarefa = document.querySelector(".form-cadastro-tarefa [name=tarefa]").value
+            let dateTime = document.querySelector(".form-cadastro-tarefa [name=datetime]").value
+                
+            const db = getFirestore(app)
+
+            let dataAtual = new Date().getTime()
+            if(dataAtual > new Date(dateTime).getTime()){
+                alert("Você informou uma data no passado")
+            }else if(tarefa == "" || dateTime == ""){
+                alert("Informe os campos")
+            }else{
+                const tarefa_ref = await addDoc(collection(db, "tarefas"), {
+                        tarefa: tarefa,
+                        dateTime: dateTime,
+                        userId: usuario.uid
+                    });
+                formCadastro.reset()
+                console.log(`Sua tarefa de ID ${tarefa_ref.id} foi cadastrada com sucesso!`)
+            }
+        })
+            
+
+
+
+      </script>
+</body>
+</html>
